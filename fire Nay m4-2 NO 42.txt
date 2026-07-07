@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกการบ้าน & To-Do List ม.4</title>
+    
+    <!-- ------------------------------------------------------------- -->
+    <!-- ส่วนของ CSS: ตกแต่งหน้าตาโปรแกรม (Responsive & Dark Mode) -->
+    <!-- ------------------------------------------------------------- -->
+    <style>
+        /* กำหนดตัวแปรสำหรับโทนสี (Theme Variables) เพื่อให้เปลี่ยนโหมดง่าย */
+        :root {
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333333;
+            --primary-color: #4a90e2;
+            --success-color: #2ec4b6;
+            --warning-color: #ff9f1c;
+            --danger-color: #e71d36;
+            --border-color: #dddddd;
+        }
+
+        /* โทนสีสำหรับโหมดมืด (Dark Mode) */
+        [data-theme="dark"] {
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #f5f5f5;
+            --border-color: #444444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* ส่วนหัวและปุ่มเปลี่ยนโหมด */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-theme { background-color: var(--primary-color); color: white; }
+        .btn-add { background-color: var(--primary-color); color: white; width: 100%; }
+        .btn-edit { background-color: var(--warning-color); color: white; }
+        .btn-delete { background-color: var(--danger-color); color: white; }
+        .btn-clear { background-color: #7f8c8d; color: white; margin-top: 10px; }
+
+        /* ส่วนหน้ารายงาน (Dashboard) */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .card h3 { font-size: 0.9rem; margin-bottom: 5px; color: #7f8c8d; }
+        .card p { font-size: 1.8rem; font-weight: bold; }
+        .urgent-list { text-align: left; font-size: 0.85rem; padding: 5px; list-style-type: none;}
+        .urgent-item { color: var(--danger-color); margin-bottom: 4px; }
+
+        /* ส่วนฟอร์มและเครื่องมือกรองข้อมูล */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .main-content { grid-template-columns: 1fr 2fr; }
+        }
+
+        .form-section, .filter-section, .list-section {
+            background-color: var(--card-bg);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        /* ส่วนการค้นหาและตัวกรอง */
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        /* ส่วนแสดงรายการ To-Do Card */
+        .todo-item {
+            background-color: var(--card-bg);
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        @media (min-width: 600px) {
+            .todo-item {
+                flex-direction: row;
+                justify-content: space-between;
+                align-items: center;
+            }
+        }
+
+        /* สีแบ่งตามระดับความสำคัญ */
+        .priority-high { border-left-color: var(--danger-color); }
+        .priority-medium { border-left-color: var(--warning-color); }
+        .priority-low { border-left-color: var(--success-color); }
+
+        .todo-info h4 { margin-bottom: 5px; }
+        .todo-meta { font-size: 0.85rem; color: #7f8c8d; }
+        .badge {
+            display: inline-block;
+            padding: 3px 7px;
+            border-radius: 3px;
+            font-size: 0.75rem;
+            color: white;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .badge-high { background-color: var(--danger-color); }
+        .badge-medium { background-color: var(--warning-color); }
+        .badge-low { background-color: var(--success-color); }
+        
+        .todo-actions {
+            display: flex;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- ส่วนหัวเว็บ -->
+        <header>
+            <div>
+                <h1>สมุดจดการบ้านดิจิทัล ม.4</h1>
+                <p style="font-size: 0.9rem; color: #7f8c8d;">ระบบบันทึกและติดตามงานแบบ Single Page</p>
+            </div>
+            <button class="btn btn-theme" id="themeToggle" onclick="toggleTheme()">โหมดมืด</button>
+        </header>
+
+        <!-- หน้ารายงาน (Dashboard) -->
+        <section class="dashboard">
+            <div class="card">
+                <h3>งานทั้งหมด</h3>
+                <p id="dash-total">0</p>
+            </div>
+            <div class="card" style="border-bottom: 4px solid var(--warning-color);">
+                <h3>กำลังทำ / ยังไม่เสร็จ</h3>
+                <p id="dash-pending">0</p>
+            </div>
+            <div class="card" style="border-bottom: 4px solid var(--success-color);">
+                <h3>เสร็จสิ้นแล้ว</h3>
+                <p id="dash-completed">0</p>
+            </div>
+            <div class="card">
+                <h3>งานเร่งด่วน (ใน 3 วัน)</h3>
+                <ul class="urgent-list" id="dash-urgent">
+                    <!-- รายการงานเร่งด่วนจะแสดงที่นี่ -->
+                </ul>
+            </div>
+        </section>
+
+        <!-- พื้นที่ทำงานหลัก -->
+        <div class="main-content">
+            
+            <!-- ฝั่งซ้าย: ฟอร์มกรอกข้อมูล -->
+            <div class="left-col">
+                <div class="form-section">
+                    <h3 id="form-title" style="margin-bottom: 15px;">➕ เพิ่มงานใหม่</h3>
+                    <!-- Input แอบเก็บ ID ไว้ใช้ตอนแก้ไขข้อมูล -->
+                    <input type="hidden" id="todo-id">
+                    
+                    <div class="form-group">
+                        <label for="todo-title">ชื่องาน / การบ้าน</label>
+                        <input type="text" id="todo-title" class="form-control" placeholder="เช่น รายงาน SDLC, ทำแบบฝึกหัดหน้า 5">
+                    </div>
+                    <div class="form-group">
+                        <label for="todo-subject">รายวิชา</label>
+                        <input type="text" id="todo-subject" class="form-control" placeholder="เช่น วิทยาการคำนวณ, คณิตศาสตร์">
+                    </div>
+                    <div class="form-group">
+                        <label for="todo-date">วันที่ครบกำหนดส่ง</label>
+                        <input type="date" id="todo-date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label for="todo-priority">ระดับความสำคัญ</label>
+                        <select id="todo-priority" class="form-control">
+                            <option value="ต่ำ">ต่ำ (สีเขียว)</option>
+                            <option value="ปานกลาง" selected>ปานกลาง (สีส้ม)</option>
+                            <option value="สูง">สูง (สีแดง)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-add" id="btn-save" onclick="saveTodo()">บันทึกข้อมูลงาน</button>
+                    <button class="btn btn-clear" id="btn-cancel" onclick="resetForm()" style="display:none; width:100%;">ยกเลิกการแก้ไข</button>
+                </div>
+            </div>
+
+            <!-- ฝั่งขวา: ค้นหา ตัวกรอง และ รายการงานทั้งหมด -->
+            <div class="right-col">
+                <!-- ส่วนค้นหาและกรองข้อมูล -->
+                <div class="filter-section">
+                    <h3>🔍 ค้นหาและคัดกรองข้อมูล</h3>
+                    <div class="form-group" style="margin-top: 10px;">
+                        <input type="text" id="search-text" class="form-control" placeholder="พิมพ์ชื่องานที่ต้องการค้นหา..." oninput="render()">
+                    </div>
+                    <div class="filter-grid">
+                        <div>
+                            <label style="font-size: 0.8rem;">กรองวิชา</label>
+                            <select id="filter-subject" class="form-control" onchange="render()">
+                                <option value="all">ทุกวิชา</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">กรองสถานะ</label>
+                            <select id="filter-status" class="form-control" onchange="render()">
+                                <option value="all">ทุกสถานะ</option>
+                                <option value="ยังไม่ทำ">ยังไม่ทำ</option>
+                                <option value="กำลังทำ">กำลังทำ</option>
+                                <option value="เสร็จแล้ว">เสร็จแล้ว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8rem;">ระดับความสำคัญ</label>
+                            <select id="filter-priority" class="form-control" onchange="render()">
+                                <option value="all">ทุกระดับ</option>
+                                <option value="ต่ำ">ต่ำ</option>
+                                <option value="ปานกลาง">ปานกลาง</option>
+                                <option value="สูง">สูง</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ส่วนแสดงผลรายการ To-Do -->
+                <div class="list-section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>📋 รายการงานที่จัดเรียงตามกำหนดส่งใกล้สุดก่อน</h3>
+                        <button class="btn btn-delete" style="padding: 5px 10px; font-size: 0.8rem;" onclick="clearCompleted()">🧹 ล้างงานที่เสร็จแล้ว</button>
+                    </div>
+                    <div id="todo-container">
+                        <!-- รายการงานต่างๆ จะมาโผล่ตรงนี้ด้วย JavaScript -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ------------------------------------------------------------- -->
+    <!-- ส่วนของ JavaScript: ควบคุมการทำงานของระบบ (Logic) -->
+    <!-- ------------------------------------------------------------- -->
+    <script>
+        // 1. ตัวแปรหลักสำหรับเก็บอาเรย์ของงานทั้งหมด ตัวอย่างข้อมูลข้างในเซ็ตเริ่มต้นเป็นโครงสร้างออบเจ็กต์
+        let todos = [];
+
+        // ฟังก์ชันแรกที่จะทำงานเมื่อเปิดหน้าเว็บขึ้นมา
+        window.onload = function() {
+            // โหลดข้อมูลจาก Local Storage ถ้าไม่มีให้เป็นอาเรย์ว่าง
+            const savedTodos = localStorage.getItem('school_todos');
+            if (savedTodos) {
+                todos = JSON.parse(savedTodos);
+            }
+            
+            // เช็คการตั้งค่าโหมดมืดเดิมที่เคยเปิดไว้
+            if(localStorage.getItem('theme') === 'dark') {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('themeToggle').innerText = 'โหมดสว่าง';
+            }
+
+            // ตั้งค่าวันที่เริ่มต้นในฟอร์มให้เป็นวันปัจจุบันเพื่อความสะดวกของผู้ใช้
+            document.getElementById('todo-date').value = new Date().toISOString().split('T')[0];
+
+            // ประมวลผลและแสดงผลข้อมูล
+            updateDropdownFilters();
+            render();
+        };
+
+        // 2. ฟังก์ชันบันทึกข้อมูล (ทั้งกรณีเพิ่มใหม่ และ แก้ไขข้อมูลเดิม)
+        function saveTodo() {
+            const idInput = document.getElementById('todo-id').value;
+            const titleInput = document.getElementById('todo-title').value.trim();
+            const subjectInput = document.getElementById('todo-subject').value.trim();
+            const dateInput = document.getElementById('todo-date').value;
+            const priorityInput = document.getElementById('todo-priority').value;
+
+            // ตรวจสอบความถูกต้อง (Validation) ถ้าพิมพ์เว้นว่างไว้ให้แจ้งเตือน
+            if (!titleInput || !subjectInput || !dateInput) {
+                alert('กรุณากรอกข้อมูล ชื่องาน, รายวิชา และวันที่ส่ง ให้ครบถ้วนด้วยครับลูกศิษย์!');
+                return;
+            }
+
+            if (idInput === "") {
+                // --- กรณีเพิ่มงานใหม่ ---
+                const newTodo = {
+                    id: Date.now().toString(), // ใช้ timestamp แทนไอดีที่ไม่ซ้ำกัน
+                    title: titleInput,
+                    subject: subjectInput,
+                    date: dateInput,
+                    priority: priorityInput,
+                    status: 'ยังไม่ทำ' // เริ่มต้นสถานะให้เป็น "ยังไม่ทำ"
+                };
+                todos.push(newTodo);
+            } else {
+                // --- กรณีแก้ไขงานเดิมที่มีอยู่แล้ว ---
+                const todoIndex = todos.findIndex(t => t.id === idInput);
+                if (todoIndex !== -1) {
+                    todos[todoIndex].title = titleInput;
+                    todos[todoIndex].subject = subjectInput;
+                    todos[todoIndex].date = dateInput;
+                    todos[todoIndex].priority = priorityInput;
+                }
+            }
+
+            saveToLocalStorage();
+            resetForm();
+            updateDropdownFilters();
+            render();
+        }
+
+        // 3. ฟังก์ชันแก้ไขข้อมูล (ดึงค่าจากรายการมาใส่ในฟอร์มด้านซ้าย)
+        function editTodo(id) {
+            const item = todos.find(t => t.id === id);
+            if (item) {
+                document.getElementById('todo-id').value = item.id;
+                document.getElementById('todo-title').value = item.title;
+                document.getElementById('todo-subject').value = item.subject;
+                document.getElementById('todo-date').value = item.date;
+                document.getElementById('todo-priority').value = item.priority;
+
+                // เปลี่ยนข้อความบนปุ่มและแสดงปุ่มยกเลิก
+                document.getElementById('form-title').innerText = '✏️ แก้ไขข้อมูลงาน';
+                document.getElementById('btn-save').innerText = 'อัปเดตข้อมูลงาน';
+                document.getElementById('btn-cancel').style.display = 'block';
+            }
+        }
+
+        // 4. ฟังก์ชันเปลี่ยนสถานะการทำงาน (วนลูปเปลี่ยนจาก ยังไม่ทำ -> กำลังทำ -> เสร็จแล้ว)
+        function toggleStatus(id) {
+            const item = todos.find(t => t.id === id);
+            if (item) {
+                if (item.status === 'ยังไม่ทำ') item.status = 'กำลังทำ';
+                else if (item.status === 'กำลังทำ') item.status = 'เสร็จแล้ว';
+                else item.status = 'ยังไม่ทำ';
+                
+                saveToLocalStorage();
+                render();
+            }
+        }
+
+        // 5. ฟังก์ชันลบงานแบบระบุรายรายการ
+        function deleteTodo(id) {
+            if(confirm('แน่ใจไหมครับว่าจะลบงานชิ้นนี้ออกจากระบบ?')) {
+                todos = todos.filter(t => t.id !== id);
+                saveToLocalStorage();
+                updateDropdownFilters();
+                render();
+            }
+        }
+
+        // 6. ฟังก์ชันลบเฉพาะงานที่ทำเสร็จแล้วทั้งหมด (Clear Completed)
+        function clearCompleted() {
+            const completedCount = todos.filter(t => t.status === 'เสร็จแล้ว').length;
+            if (completedCount === 0) {
+                alert('ยังไม่มีงานชิ้นไหนที่มีสถานะ "เสร็จแล้ว" ให้ล้างเลยครับ');
+                return;
+            }
+            if(confirm(`คุณต้องการลบงานที่ทำเสร็จแล้วทั้ง ${completedCount} งานใช่หรือไม่?`)) {
+                todos = todos.filter(t => t.status !== 'เสร็จแล้ว');
+                saveToLocalStorage();
+                updateDropdownFilters();
+                render();
+            }
+        }
+
+        // 7. ฟังก์ชันล้างค่าฟอร์มรับข้อมูลให้กลับเป็นค่าเริ่มต้น
+        function resetForm() {
+            document.getElementById('todo-id').value = '';
+            document.getElementById('todo-title').value = '';
+            document.getElementById('todo-subject').value = '';
+            document.getElementById('todo-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('todo-priority').value = 'ปานกลาง';
+
+            document.getElementById('form-title').innerText = '➕ เพิ่มงานใหม่';
+            document.getElementById('btn-save').innerText = 'บันทึกข้อมูลงาน';
+            document.getElementById('btn-cancel').style.display = 'none';
+        }
+
+        // 8. ฟังก์ชันอัปเดตรายชื่อรายวิชาลงใน Select Dropdown คัดกรองอัตโนมัติ
+        function updateDropdownFilters() {
+            const filterSubject = document.getElementById('filter-subject');
+            const currentSelected = filterSubject.value;
+            
+            // ดึงรายวิชาที่ไม่ซ้ำกันออกมาทั้งหมดด้วย Set
+            const subjects = [...new Set(todos.map(t => t.subject))];
+            
+            // รีเซ็ตล้างออปชันเก่าออกก่อน แล้วเติมคำว่า "ทุกวิชา" เข้าไปใหม่
+            filterSubject.innerHTML = '<option value="all">ทุกวิชา</option>';
+            
+            subjects.forEach(sub => {
+                if(sub.trim() !== "") {
+                    const opt = document.createElement('option');
+                    opt.value = sub;
+                    opt.innerText = sub;
+                    filterSubject.appendChild(opt);
+                }
+            });
+            
+            // คงค่าเดิมที่ผู้ใช้เคยเลือกค้างไว้ก่อนหน้านี้
+            filterSubject.value = currentSelected;
+        }
+
+        // 9. ฟังก์ชันจัดการฐานข้อมูลบันทึกใน Local Storage
+        function saveToLocalStorage() {
+            localStorage.setItem('school_todos', JSON.stringify(todos));
+        }
+
+        // 10. ฟังก์ชันสลับธีมระหว่างโหมดมืดและสว่าง
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            if (currentTheme === 'dark') {
+                document.documentElement.removeAttribute('data-theme');
+                document.getElementById('themeToggle').innerText = 'โหมดมืด';
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                document.getElementById('themeToggle').innerText = 'โหมดสว่าง';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // 11. ฟังก์ชัน Render: ทำหน้าที่คัดกรอง เรียงลำดับ วาดหน้าจอหลัก และสรุปยอดแดชบอร์ด
+        function render() {
+            const container = document.getElementById('todo-container');
+            const searchText = document.getElementById('search-text').value.toLowerCase();
+            const filterSub = document.getElementById('filter-subject').value;
+            const filterStat = document.getElementById('filter-status').value;
+            const filterPri = document.getElementById('filter-priority').value;
+
+            // คัดกรองข้อมูลตามเงื่อนไขที่ผู้ใช้ระบุในกล่องค้นหาและ Dropdown คัดกรอง
+            let filteredTodos = todos.filter(item => {
+                const matchSearch = item.title.toLowerCase().includes(searchText);
+                const matchSubject = (filterSub === 'all' || item.subject === filterSub);
+                const matchStatus = (filterStat === 'all' || item.status === filterStat);
+                const matchPriority = (filterPri === 'all' || item.priority === filterPri);
+                return matchSearch && matchSubject && matchStatus && matchPriority;
+            });
+
+            // เรียงลำดับวันที่ครบกำหนดส่งจากน้อยไปมาก (กำหนดส่งที่ใกล้ที่สุดจะถูกเลื่อนขึ้นมาไว้บนสุด)
+            filteredTodos.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            // แสดง HTML ของแต่ละรายการการบ้าน
+            container.innerHTML = '';
+            if (filteredTodos.length === 0) {
+                container.innerHTML = '<p style="text-align:center; color:#7f8c8d; padding:20px;">ไม่พบรายการงานที่ตรงกับเงื่อนไขการค้นหา</p>';
+            } else {
+                filteredTodos.forEach(item => {
+                    let priorityClass = 'priority-medium';
+                    let badgeClass = 'badge-medium';
+                    if (item.priority === 'สูง') { priorityClass = 'priority-high'; badgeClass = 'badge-high'; }
+                    if (item.priority === 'ต่ำ') { priorityClass = 'priority-low'; badgeClass = 'badge-low'; }
+
+                    // กำหนดสีของข้อความสถานะให้เด่นชัด
+                    let statusColor = '#ff9f1c'; // กำลังทำ
+                    if(item.status === 'ยังไม่ทำ') statusColor = '#e71d36';
+                    if(item.status === 'เสร็จแล้ว') statusColor = '#2ec4b6';
+
+                    // แปลงรูปแบบการแสดงผลวันที่ให้มองง่าย
+                    const dateOptions = { year: 'numeric', month: 'short', day: 'numeric' };
+                    const formattedDate = new Date(item.date).toLocaleDateString('th-TH', dateOptions);
+
+                    const todoEl = document.createElement('div');
+                    todoEl.className = `todo-item ${priorityClass}`;
+                    todoEl.innerHTML = `
+                        <div class="todo-info">
+                            <h4 style="${item.status === 'เสร็จแล้ว' ? 'text-decoration: line-through; color: #7f8c8d;' : ''}">${item.title}</h4>
+                            <div class="todo-meta">
+                                <span class="badge ${badgeClass}">สำคัญ: ${item.priority}</span>
+                                📂 วิชา: <strong>${item.subject}</strong> | 📅 ส่งภายใน: <strong>${formattedDate}</strong>
+                            </div>
+                            <div style="margin-top: 8px; font-size:0.85rem;">
+                                สถานะ: <span style="color:${statusColor}; font-weight:bold; cursor:pointer;" onclick="toggleStatus('${item.id}')">🔄 ${item.status} (คลิกเปลี่ยน)</span>
+                            </div>
+                        </div>
+                        <div class="todo-actions">
+                            <button class="btn btn-edit" onclick="editTodo('${item.id}')">แก้ไข</button>
+                            <button class="btn btn-delete" onclick="deleteTodo('${item.id}')">ลบ</button>
+                        </div>
+                    `;
+                    container.appendChild(todoEl);
+                });
+            }
+
+            // --- คำนวณค่าและแสดงผลบนแดชบอร์ด (Dashboard Calculation) ---
+            document.getElementById('dash-total').innerText = todos.length;
+            document.getElementById('dash-pending').innerText = todos.filter(t => t.status !== 'เสร็จแล้ว').length;
+            document.getElementById('dash-completed').innerText = todos.filter(t => t.status === 'เสร็จแล้ว').length;
+
+            // ตรวจสอบและแสดงรายการงานเร่งด่วนที่เหลือเวลาส่งน้อยกว่าหรือเท่ากับ 3 วัน
+            const urgentListContainer = document.getElementById('dash-urgent');
+            urgentListContainer.innerHTML = '';
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            
+            // คัดกรองเฉพาะงานที่ยังไม่เสร็จ และกำลังจะถึงกำหนดภายใน 3 วันข้างหน้า
+            const urgentItems = todos.filter(t => {
+                if(t.status === 'เสร็จแล้ว') return false;
+                const dueDate = new Date(t.date);
+                dueDate.setHours(0,0,0,0);
+                const diffTime = dueDate - today;
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return diffDays >= 0 && diffDays <= 3;
+            });
+
+            if(urgentItems.length === 0) {
+                urgentListContainer.innerHTML = '<li style="color:#2ec4b6;">🎉 ไม่มีงานค้างเร่งด่วนใน 3 วันนี้</li>';
+            } else {
+                urgentItems.forEach(item => {
+                    const li = document.createElement('li');
+                    li.className = 'urgent-item';
+                    li.innerText = `⚠️ ${item.title} (${item.subject})`;
+                    urgentListContainer.appendChild(li);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
