@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกและติดตามงาน</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
+        body {
+            font-family: 'Kanit', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-purple-900 min-h-screen text-slate-800">
+
+    <div class="container mx-auto max-w-4xl p-4 md:p-8">
+        <header class="text-center mb-8 bg-amber-400 p-6 rounded-2xl shadow-lg border-4 border-purple-950">
+            <h1 class="text-3xl md:text-4xl font-bold text-purple-900 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-list-check"></i> ระบบติดตามการส่งงาน
+            </h1>
+            <p class="text-purple-950 font-medium mt-2">จัดการงานของคุณให้เรียบร้อย ในธีมม่วง-เหลืองสุดจี๊ด</p>
+        </header>
+
+        <div class="bg-white p-6 rounded-2xl shadow-xl mb-8 border-t-8 border-amber-400">
+            <h2 id="form-title" class="text-xl font-bold text-purple-900 mb-4 flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle"></i> เพิ่มงานใหม่
+            </h2>
+            <form id="task-form" class="space-y-4">
+                <input type="hidden" id="task-id">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-semibold text-purple-950 mb-1">ชื่องาน / รายละเอียด</label>
+                        <input type="text" id="task-title" required class="w-full px-4 py-2 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-600" placeholder="เช่น ส่งรายงานวิชาภาษาไทย, ทำการบ้านคณิต">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-purple-950 mb-1">วันที่กำหนดส่ง</label>
+                        <input type="date" id="task-date" required class="w-full px-4 py-2 border-2 border-purple-200 rounded-xl focus:outline-none focus:border-purple-600">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="button" id="cancel-btn" class="hidden px-5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium rounded-xl transition duration-200">
+                        ยกเลิกแก้ไข
+                    </button>
+                    <button type="submit" id="submit-btn" class="px-6 py-2 bg-amber-400 hover:bg-amber-500 text-purple-950 font-bold rounded-xl transition duration-200 shadow-md">
+                        <i class="fa-solid fa-save mr-1"></i> บันทึกงาน
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-purple-800 text-amber-300 p-4 rounded-xl shadow-md border-2 border-amber-400 text-center">
+                <p class="text-sm font-medium">🔴 ยังไม่ส่ง</p>
+                <p id="count-pending" class="text-3xl font-bold mt-1">0</p>
+            </div>
+            <div class="bg-amber-400 text-purple-950 p-4 rounded-xl shadow-md border-2 border-purple-950 text-center">
+                <p class="text-sm font-bold">🟢 ส่งแล้ว</p>
+                <p id="count-completed" class="text-3xl font-extrabold mt-1">0</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div class="bg-purple-950 p-4 text-white font-bold text-lg flex items-center gap-2">
+                <i class="fa-solid fa-folder-open text-amber-400"></i> รายการงานทั้งหมด
+            </div>
+            <ul id="task-list" class="divide-y divide-purple-100">
+                </ul>
+            <div id="empty-state" class="p-8 text-center text-slate-400 hidden">
+                <i class="fa-regular fa-clipboard text-4xl mb-2 block"></i>
+                ยังไม่มีการบันทึกงานในขณะนี้
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ดึงข้อมูลจาก LocalStorage หรือเริ่มด้วยอาร์เรย์ว่าง
+        let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+        let isEditing = false;
+
+        const taskForm = document.getElementById('task-form');
+        const taskTitleInput = document.getElementById('task-title');
+        const taskDateInput = document.getElementById('task-date');
+        const taskIdInput = document.getElementById('task-id');
+        const formTitle = document.getElementById('form-title');
+        const submitBtn = document.getElementById('submit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const taskList = document.getElementById('task-list');
+        const emptyState = document.getElementById('empty-state');
+
+        // ฟังก์ชันบันทึกข้อมูลลง LocalStorage และอัปเดตหน้าจอ
+        function updateUI() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+            renderTasks();
+            updateCounters();
+        }
+
+        // ฟังก์ชันคำนวณจำนวนงาน
+        function updateCounters() {
+            const pending = tasks.filter(t => !t.completed).length;
+            const completed = tasks.filter(t => t.completed).length;
+            document.getElementById('count-pending').textContent = pending;
+            document.getElementById('count-completed').textContent = completed;
+        }
+
+        // ฟังก์ชันวาดรายการงานลงบนเว็บ
+        function renderTasks() {
+            taskList.innerHTML = '';
+            
+            if (tasks.length === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+
+            // เรียงลำดับตามวันที่ส่ง
+            tasks.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            tasks.forEach(task => {
+                const li = document.createElement('li');
+                li.className = p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition duration-200 ${task.completed ? 'bg-purple-50/50' : 'hover:bg-amber-50/30'};
+                
+                // จัดรูปแบบวันที่แสดงผล (แบบไทยง่ายๆ)
+                const dateObj = new Date(task.date);
+                const formattedDate = dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+
+                li.innerHTML = `
+                    <div class="flex items-start gap-3 flex-1">
+                        <button onclick="toggleStatus('${task.id}')" class="mt-1 focus:outline-none text-xl transition duration-150">
+                            ${task.completed 
+                                ? '<i class="fa-solid fa-circle-check text-purple-600 hover:text-purple-800"></i>' 
+                                : '<i class="fa-regular fa-circle text-amber-500 hover:text-amber-600"></i>'}
+                        </button>
+                        <div class="flex-1">
+                            <span class="font-medium text-lg ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}">
+                                ${task.title}
+                            </span>
+                            <div class="flex items-center gap-2 mt-1">
+                                <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${task.completed ? 'bg-purple-200 text-purple-800' : 'bg-amber-100 text-amber-800'}">
+                                    <i class="fa-regular fa-calendar-days mr-1"></i> ส่ง: ${formattedDate}
+                                </span>
+                                <span class="text-xs ${task.completed ? 'text-purple-500' : 'text-red-500 font-medium'}">
+                                    ${task.completed ? '● ส่งเรียบร้อยแล้ว' : '● ยังไม่ได้ส่ง'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-purple-100">
+                        <button onclick="editTask('${task.id}')" class="p-2 text-purple-700 hover:bg-purple-100 rounded-lg transition" title="แก้ไขงาน">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deleteTask('${task.id}')" class="p-2 text-red-500 hover:bg-red-50 rounded-lg transition" title="ลบงาน">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                taskList.appendChild(li);
+            });
+        }
+
+        // จัดการเมื่อส่งฟอร์ม (เพิ่ม หรือ แก้ไข)
+        taskForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const title = taskTitleInput.value.trim();
+            const date = taskDateInput.value;
+            const id = taskIdInput.value;
+
+            if (!title || !date) return;
+
+            if (isEditing) {
+                // โหมดแก้ไข
+                tasks = tasks.map(task => task.id === id ? { ...task, title, date } : task);
+                resetForm();
+            } else {
+                // โหมดเพิ่มใหม่
+                const newTask = {
+                    id: Date.now().toString(),
+                    title,
+                    date,
+                    completed: false
+                };
+                tasks.push(newTask);
+            }
+
+            taskForm.reset();
+            updateUI();
+        });
+
+        // ฟังก์ชันสลับสถานะ (ส่งแล้ว / ยังไม่ส่ง)
+        window.toggleStatus = function(id) {
+            tasks = tasks.map(task => task.id === id ? { ...task, completed: !task.completed } : task);
+            updateUI();
+        };
+
+        // ฟังก์ชันเตรียมแก้ไขงาน
+        window.editTask = function(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+
+            isEditing = true;
+            taskIdInput.value = task.id;
+            taskTitleInput.value = task.title;
+            taskDateInput.value = task.date;
+
+            formTitle.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> แก้ไขข้อมูลงาน';
+            submitBtn.innerHTML = '<i class="fa-solid fa-save mr-1"></i> อัปเดตงาน';
+            cancelBtn.classList.remove('hidden');
+            
+            // เลื่อนหน้าจอขึ้นไปที่ฟอร์มแก้ไข
+            taskForm.scrollIntoView({ behavior: 'smooth' });
+        };
+
+        // ฟังก์ชันลบงาน
+        window.deleteTask = function(id) {
+            if (confirm('คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้?')) {
+                tasks = tasks.filter(task => task.id !== id);
+                if (isEditing && taskIdInput.value === id) {
+                    resetForm();
+                }
+                updateUI();
+            }
+        };
+
+        // ล้างฟอร์มกลับเป็นโหมดเพิ่มงานปกติ
+        cancelBtn.addEventListener('click', resetForm);
+
+        function resetForm() {
+            isEditing = false;
+            taskForm.reset();
+            taskIdInput.value = '';
+            formTitle.innerHTML = '<i class="fa-solid fa-plus-circle"></i> เพิ่มงานใหม่';
+            submitBtn.innerHTML = '<i class="fa-solid fa-save mr-1"></i> บันทึกงาน';
+            cancelBtn.classList.add('hidden');
+        }
+
+        // เริ่มต้นวาด UI เมื่อโหลดหน้าเว็บครั้งแรก
+        updateUI();
+    </script>
+</body>
+</html>
